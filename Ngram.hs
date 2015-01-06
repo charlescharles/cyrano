@@ -1,10 +1,11 @@
-module Ngram where
+module Ngram (generateN) where
 
 import           Data.Char     (isAlpha, isSpace, toLower)
 import           Data.Functor  ((<$>))
 import           Data.List     (group, sort)
 import qualified Data.Map      as M
 import qualified System.Random as Rand
+import Data.Maybe (isNothing, fromJust)
 
 type Corpus = String
 type Sequence = [String]
@@ -19,7 +20,7 @@ clean = map toLower . filter allowedChar
 
 ngrams' :: Sequence -> Sequence -> Int -> [Sequence]
 ngrams' x@(p:ps) y@(w:ws) n = (x ++ [w]) : ngrams' (ps ++ [w]) ws n
-ngrams' _ [] _ = []
+ngrams' _ _ _ = []
 
 ngrams :: Int -> Sequence -> [Sequence]
 ngrams n ws
@@ -57,22 +58,22 @@ pick dist = do
         n <- Rand.getStdRandom $ Rand.randomR (1, range)
         return $ nth n dist
 
-predictFailed :: Predictor -> IO Word
-predictFailed _ = return "shit"
-
-predict :: Predictor -> Sequence -> IO Word
+predict :: Predictor -> Sequence -> IO (Maybe Word)
 predict p sq = case M.lookup sq p of
-                   Nothing -> predictFailed p
-                   Just dist -> pick dist
+    Nothing -> return Nothing
+    Just dist -> return <$> pick dist
 
 nextN :: Predictor -> Sequence -> Int -> IO [Word]
 nextN _ _ 0 = return []
 nextN p sq n = do
-        next <- predict p sq
-        rest <- nextN p (tail sq ++ [next]) (n - 1)
-        return (next : rest)
+        nextM <- predict p sq
+        if isNothing nextM
+            then return []
+            else do
+                let next = fromJust nextM
+                rest <- nextN p (tail sq ++ [next]) (n - 1)
+                return (next : rest)
 
 generateN :: Corpus -> Sequence -> Order -> Int -> IO String
 generateN c start ord n = let pred = buildPredictor ord c in
     (unwords . (start ++)) <$> nextN pred start n
-
