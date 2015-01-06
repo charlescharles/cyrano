@@ -26,3 +26,4 @@ executable todo
                      , wai-middleware-static
                      , wai-extra
                      , time
+                     , configurator

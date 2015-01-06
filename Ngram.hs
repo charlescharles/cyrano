@@ -1,4 +1,6 @@
-module Ngram (generateN) where
+{-# LANGUAGE RecordWildCards #-}
+
+module Ngram (Markov, Sequence, markov, generate) where
 
 import           Data.Char     (isAlpha, isSpace, toLower)
 import           Data.Functor  ((<$>))
@@ -7,7 +9,7 @@ import qualified Data.Map      as M
 import qualified System.Random as Rand
 import Data.Maybe (isNothing, fromJust)
 
-type Corpus = String
+type Text = String
 type Sequence = [String]
 type Word = String
 type Order = Int
@@ -15,7 +17,7 @@ type Order = Int
 allowedChar :: Char -> Bool
 allowedChar c = any ($ c) [isAlpha, isSpace]
 
-clean :: Corpus -> Corpus
+clean :: Text -> Text
 clean = map toLower . filter allowedChar
 
 ngrams' :: Sequence -> Sequence -> Int -> [Sequence]
@@ -35,16 +37,13 @@ count = map f . group . sort where
 type Distribution = [(Word, Int)]
 type Predictor = M.Map Sequence Distribution
 
-predictor :: [(Sequence, Int)] -> Predictor
-predictor = foldr go M.empty where
+buildPredictor :: [(Sequence, Int)] -> Predictor
+buildPredictor = foldr go M.empty where
     go (sq, ct) m = let key = init sq
                         char = last sq in
                             case M.lookup key m of
                                 Nothing -> M.insert key [(char, ct)] m
                                 Just _ -> M.adjust ((char, ct):) key m
-
-buildPredictor :: Order -> Corpus -> Predictor
-buildPredictor n = predictor . count . ngrams n . words . clean
 
 nth :: Int -> [(a, Int)] -> a
 nth n ((x, ct):xs)
@@ -74,6 +73,18 @@ nextN p sq n = do
                 rest <- nextN p (tail sq ++ [next]) (n - 1)
                 return (next : rest)
 
-generateN :: Corpus -> Sequence -> Order -> Int -> IO String
-generateN c start ord n = let pred = buildPredictor ord c in
-    (unwords . (start ++)) <$> nextN pred start n
+predictor :: Order -> Text -> Predictor
+predictor n = buildPredictor . count . ngrams n . words . clean
+
+lastN :: Int -> [a] -> [a]
+lastN n xs = drop ((length xs) - n) xs
+
+data Markov = Markov { order :: Int, pred :: !Predictor }
+    deriving (Eq, Show)
+
+markov :: Order -> Text -> Markov
+markov n c = Markov n (predictor n c)
+
+generate :: Sequence -> Int -> Markov -> IO String
+generate s n Markov{..} = (unwords . (s ++)) <$> nextN pred initial n where
+    initial = lastN (order - 1) s
