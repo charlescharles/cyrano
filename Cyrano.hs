@@ -19,8 +19,11 @@ data CyranoInfo = CyranoInfo
                     }
 
 newtype Cyrano a = Cyrano {
-  runCyrano :: ReaderT CyranoInfo (MaybeT IO) a
+  runC :: ReaderT CyranoInfo (MaybeT IO) a
 } deriving (Monad, MonadIO, MonadReader CyranoInfo, MonadPlus)
+
+runCyrano :: Cyrano a -> CyranoInfo -> MaybeT IO a
+runCyrano c = runReaderT (runC c)
 
 complete :: Corpus -> Sequence -> Cyrano String
 complete c s = do
