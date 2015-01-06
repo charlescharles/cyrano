@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Ngram (Markov, Sequence, markov, generate) where
+module Ngram (Markov, markov, generate) where
 
 import           Data.Char     (isAlpha, isSpace, toLower)
 import           Data.Functor  ((<$>))
@@ -82,9 +82,10 @@ lastN n xs = drop ((length xs) - n) xs
 data Markov = Markov { order :: Int, pred :: !Predictor }
     deriving (Eq, Show)
 
-markov :: Order -> Text -> Markov
+markov :: Order -> String -> Markov
 markov n c = Markov n (predictor n c)
 
-generate :: Sequence -> Int -> Markov -> IO String
-generate s n Markov{..} = (unwords . (s ++)) <$> nextN pred initial n where
+generate :: String -> Int -> Markov -> IO String
+generate t n Markov{..} = (unwords . (s ++)) <$> nextN pred initial n where
+    s = words t
     initial = lastN (order - 1) s
